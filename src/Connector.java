@@ -44,6 +44,7 @@ public class Connector {
 			PortAddr addr = myNameclient.searchName(basename + i);
 			while (addr.getPort() == -1) {
 				Thread.sleep(100);
+				addr = myNameclient.searchName(basename + i);
 			}
 			link[i] = new Socket(addr.getHostName(), addr.getPort());
 			dataOut[i] = new PrintWriter(link[i].getOutputStream());
