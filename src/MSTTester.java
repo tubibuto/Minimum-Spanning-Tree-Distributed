@@ -8,14 +8,14 @@ public class MSTTester {
         Linker comm = new Linker(args[0], myId, numProc);
         int initCost[] = new int[numProc];
         try {
-            BufferedReader dIn = new BufferedReader(new FileReader("../data/costs"));
+            BufferedReader dIn = new BufferedReader(new FileReader("../data/costs.txt"));
             String getline = dIn.readLine();
             int idx = 0;
             while (getline != null) {
                 if (idx++ == myId) {
                     StringTokenizer st = new StringTokenizer(getline);
                     idx = 0;
-                    while (st.hasMoreTokens()) {
+                    while (idx < numProc && st.hasMoreTokens()) {
                         int cost = Integer.parseInt(st.nextToken());
                         initCost[idx++] = cost;
                     }

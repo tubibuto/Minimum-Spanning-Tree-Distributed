@@ -85,27 +85,30 @@ public class MSTAsynch extends Process {
                     String.valueOf(minCost));
         }
         if (deficit == 0) {
+            System.out.println("MWOE src: " + mwoeSrc + " dest: " + mwoeDest);
             addMwoe(mwoeSrc, mwoeDest);
         }
     }
 
     void addMwoe (int localId, int remoteId) {
-        if (localId == myId) {
+        /*if (localId == myId && !marked.contains(remoteId)) {
             marked.add(remoteId);
-        }
+        }*/
         if (remoteId == myId) {
+            /*if (marked.contains(localId)) {
+                return;
+            }*/
             marked.add(localId);
             leader = Util.max(localId, remoteId);
             newLeader(leader, leader);
             return;
         }
-        for (int i = 0; i < marked.size(); ++i) {
-            int id = marked.getEntry(i);
-            if (id == parent) {
+        for (int i = 0; i < N; ++i) {
+            if ((!isNeighbor(i) || !marked.contains(i) || i == parent) && i != remoteId) {
                 continue;
             }
             sendMsg(
-                id, 
+                i, 
                 "add_mwoe", 
                 String.valueOf(localId) + ":" + String.valueOf(remoteId));
         }
@@ -114,6 +117,7 @@ public class MSTAsynch extends Process {
     void newLeader (int src, int leader) {
         this.leader = leader;
         parent = src;
+        System.out.println("marked size: " + marked.size());
         for (int i = 0; i < marked.size(); ++i) {
             int id = marked.getEntry(i);
             if (id == parent) {
@@ -125,7 +129,7 @@ public class MSTAsynch extends Process {
 
     public synchronized void waitForDone () {
         // block till children know
-        while (!done) {
+        while (!done) { 
             myWait();
         }
     }
