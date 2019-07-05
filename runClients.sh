@@ -12,6 +12,6 @@ else
         do
         gnome-terminal \
 	    --working-directory="$workDir" \
-	    -e "java MSTTester test $i $n"
+	    --command="bash -c 'java MSTTester test $i $n; read -p \"Press enter to continue...\"'"
     done
 fi
