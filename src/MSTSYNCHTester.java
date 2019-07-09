@@ -28,7 +28,7 @@ public class MSTSYNCHTester {
                 initCost[i] = i + 1;
             }
         }
-        Simplesynch pulser = new Simplesynch(comm)
+        SimpleSynch pulser = new SimpleSynch(comm);
         MSTsynch app = new MSTsynch(comm, initCost, pulser);
         for (int i = 0; i < numProc; ++i) 
             if (i != myId)

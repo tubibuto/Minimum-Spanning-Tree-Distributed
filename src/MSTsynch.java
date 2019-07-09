@@ -76,7 +76,7 @@ public class MSTsynch extends Process{
         for (int i = 0; i < marked.size(); ++i) {
             int id = marked.getEntry(i);
             if (id != parent) 
-                s.sendMsg(id, "search_mwoe", leader);
+                s.sendMessage(id, "search_mwoe", leader);
         }
     }
     
@@ -84,7 +84,7 @@ public class MSTsynch extends Process{
     void examine (){
         for (int i = 0; i < N; ++i) 
             if (isNeighbor(i) && !marked.contains(i)) 
-                s.sendMsg(i, "examine", leader);
+                s.sendMessage(i, "examine", leader);
     }
     
     
@@ -104,7 +104,7 @@ public class MSTsynch extends Process{
        for (int i = 0; i < N; ++i) {
            //send message to all children
             if (isNeighbor(i) && marked.contains(i) && i != parent)
-                s.sendMsg(
+                s.sendMessage(
                     i, 
                     "add_mwoe", 
                     String.valueOf(localId) + ":" + String.valueOf(remoteId));
@@ -126,7 +126,7 @@ public class MSTsynch extends Process{
         for (int i = 0; i < N; ++i) {
            //send message to all children
             if (isNeighbor(i) && marked.contains(i) && i != parent)
-                s.sendMsg(i, "new_leader", leader);          
+                s.sendMessage(i, "new_leader", leader);
         }
     }
     
@@ -148,7 +148,7 @@ public class MSTsynch extends Process{
         }else if (tag.equals("examine")) {
             int hisLeader = m.getMessageInt();
             if (hisLeader != leader) {
-                s.sendMsg(
+                s.sendMessage(
                     src, 
                     "reply_mwoe", 
                     String.valueOf(src) + ":" + 
@@ -176,7 +176,7 @@ public class MSTsynch extends Process{
                 //if process is not leader send his report to his parent
                 //continue convergecast
                 if (myId != leader) {
-                    s.sendMsg(
+                    s.sendMessage(
                         parent, 
                         "reply_mwoe", 
                         String.valueOf(mwoeSrc) + ":" + 

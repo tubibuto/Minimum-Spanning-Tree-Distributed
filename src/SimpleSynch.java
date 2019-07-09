@@ -2,7 +2,7 @@ import java.util.LinkedList;
 
 public class SimpleSynch extends Process implements Synchronizer {
     int pulse = 0;
-    mMsghandler prog;
+    MsgHandler prog;
     boolean rcvEnabled [];
     IntLinkedList pendingS = new IntLinkedList();
     IntLinkedList pendingR = new IntLinkedList();
@@ -29,7 +29,15 @@ public class SimpleSynch extends Process implements Synchronizer {
         rcvEnabled[src] = false;
     }
     
-    public synchronized void sendMsg(int destId, String tag, int msg){
+    public synchronized void sendMessage(int destId, String tag, int msg){
+        if (pendingS.contains(destId)) {
+            pendingS.removeObject(destId);
+            sendMsg(destId, tag, msg);
+        } else
+            System.err.println("Error: sending two messages/pulse");
+    }
+
+    public synchronized void sendMessage(int destId, String tag, String msg){
         if (pendingS.contains(destId)) {
             pendingS.removeObject(destId);
             sendMsg(destId, tag, msg);
@@ -49,6 +57,6 @@ public class SimpleSynch extends Process implements Synchronizer {
         for (int i = 0; i < N; i++)
             rcvEnabled[i] = true;
         notifyAll();
-        while (!pendingR.isEmpty()) myWait()
+        while (!pendingR.isEmpty()) myWait();
     }
 }
