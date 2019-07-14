@@ -11,21 +11,29 @@ public class SimpleSynch extends Process implements Synchronizer {
        super(initComm);
        rcvEnabled = new boolean[N];
        for (int i = 0; i < N; i++)
-           rcvEnabled[i] = false;
+           rcvEnabled[i] = true;
+       //rcvEnabled[i] = false;     //before
     }
     
     public synchronized void initialize(MsgHandler initProg){
         prog = initProg;
         pendingS.addAll(comm.neighbors);
+        System.out.println("SimpleSynch: initialize with "+ initProg + " PendingS size: "+ pendingS.size());
         notifyAll();
     }
     
     public synchronized void handleMsg(Msg m, int src, String tag){
+        System.out.println("handleMsg in SimpleSynch, tag: "+ tag );
+        System.out.println("receive anabled [" + src + "] = "+rcvEnabled[src]);
         while (!rcvEnabled[src]) myWait();
         pendingR.removeObject(src);
         if (pendingR.isEmpty()) notifyAll();
-        if (!tag.equals("synchNull"))
+        boolean isSynchNull = tag.equals("synchNull");
+        if (!isSynchNull) {
+            //System.out.print(", calling prog.handleMsg");
             prog.handleMsg(m, src, tag);
+        }
+        //System.out.println("before the end");
         rcvEnabled[src] = false;
     }
     
@@ -44,12 +52,16 @@ public class SimpleSynch extends Process implements Synchronizer {
         } else
             System.err.println("Error: sending two messages/pulse");
     }
-    
+
     public synchronized void nextPulse(){
+        //first send all the messages you need
         while (!pendingS.isEmpty()) {
             int dest = pendingS.removeHead();
             sendMsg(dest, "synchNull", 0);
         }
+        System.out.println(pendingR);
+        //then receive all the messages you need
+        while (!pendingR.isEmpty()) myWait();
         pulse++;
         Util.println("**** new pulse ****:" + pulse);
         pendingS.addAll(comm.neighbors);
@@ -57,6 +69,11 @@ public class SimpleSynch extends Process implements Synchronizer {
         for (int i = 0; i < N; i++)
             rcvEnabled[i] = true;
         notifyAll();
-        while (!pendingR.isEmpty()) myWait();
+        System.out.print("rcvEnabled: ");
+        for (int i = 0; i < N; i++)
+            System.out.print(rcvEnabled[i]+ " ");
+        System.out.print("\n");
+        //System.out.println(pendingR);
+        //while (!pendingR.isEmpty()) myWait();
     }
 }

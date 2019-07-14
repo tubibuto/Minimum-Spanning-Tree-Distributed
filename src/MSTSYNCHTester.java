@@ -33,6 +33,7 @@ public class MSTSYNCHTester {
         for (int i = 0; i < numProc; ++i) 
             if (i != myId)
                (new ListenerThread(i, pulser)).start();
-        app.initiate();       
+            pulser.initialize(app);
+        app.initiate();
     }
 }

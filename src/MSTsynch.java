@@ -10,14 +10,18 @@ public class MSTsynch extends Process{
     int mwoeDest;
     int edgeWeight[] = null;
     boolean done = false;
+    boolean algorithm_running = false;
     IntLinkedList marked = new IntLinkedList();
     Synchronizer s;
+    int examineCounter = 0;
+    int examineReplyCounter = 0;
+    int needToSend = 0;
+    IntLinkedList procDemandingExamine = new IntLinkedList();
     
     public MSTsynch(Linker initComm, int initCost[], Synchronizer initS){
          super(initComm);
          edgeWeight = initCost;
-         //numRounds = (int)(Math.log(N) / Math.log(2));
-         numRounds = (int)Math.log(N);
+         numRounds = (int)(Math.log(N)/Math.log(2));
          s = initS;
          
          parent = myId;
@@ -27,38 +31,52 @@ public class MSTsynch extends Process{
     
     
     public void initiate(){
-        s.initialize(this);
-        for( int pulse = 0; ; pulse++){
-            if (pulse == 0){
-                for ( int i = 0; i < N ; i++)
-                    if (isNeighbor(i))
-                        s.sendMessage(i, "start_algorithm", 0);
+        System.out.println("IN INITIALIZE with id " + myId + " neighbors: ");
+        for ( int i = 0; i < N ; i++)
+            if (isNeighbor(i)){
+                System.out.print(i+ " ");
+                examineCounter++;
             }
-            runAlgorithm();
+
+        //s.initialize(this);
+        runAlgorithm();
+    }
+
+    void getNumberOfMessagesNeededToSend(){
+        for (int i = 0; i < marked.size(); ++i) {
+            int id = marked.getEntry(i);
+            needToSend += id != parent && isNeighbor(id) ? 1 : 0;
+        }
+        //deficit for "examine"
+        for (int i = 0; i < N; ++i) {
+            needToSend += isNeighbor(i) && !marked.contains(i) ? 1 : 0;
         }
     }
     
     
     void runAlgorithm() {
-        System.out.println("Round " + numRounds);
+        System.out.println("\nRound " + numRounds);
         if (numRounds-- == 0) {
             System.out.println("End");
             done = true;
             notify();
             return;
         }
+        getNumberOfMessagesNeededToSend();;
         mwoeSrc = -1;
         mwoeDest = -1;
         //deficit counts the amount of messages we need to receive in one round
         deficit = 0;
         //deficit for "search mwoe"
         for (int i = 0; i < marked.size(); ++i) {
-            deficit += marked.getEntry(i) != parent ? 1 : 0;
+            int id = marked.getEntry(i);
+            deficit += id != parent && isNeighbor(id)? 1 : 0;
         }
         //deficit for "examine"
         for (int i = 0; i < N; ++i) {
             deficit += isNeighbor(i) && !marked.contains(i) ? 1 : 0;
         }
+        System.out.println("Deficit: "+ deficit);
         //leader starts the step
         if (leader != myId) {
             return;
@@ -68,6 +86,9 @@ public class MSTsynch extends Process{
         searchMwoe();
         //send examination messages to unmarked neighbors
         examine();
+        if( needToSend == 0 && deficit == 0)
+            replyExamineAndEnterNewPulse();
+        //s.nextPulse();
     }
     
     
@@ -75,16 +96,22 @@ public class MSTsynch extends Process{
     void searchMwoe() {
         for (int i = 0; i < marked.size(); ++i) {
             int id = marked.getEntry(i);
-            if (id != parent) 
+            if (id != parent) {
                 s.sendMessage(id, "search_mwoe", leader);
+                needToSend--;
+            }
         }
     }
     
     //send message to all unmarked that are neighbors
     void examine (){
         for (int i = 0; i < N; ++i) 
-            if (isNeighbor(i) && !marked.contains(i)) 
+            if (isNeighbor(i) && !marked.contains(i)) {
                 s.sendMessage(i, "examine", leader);
+                examineReplyCounter++;
+                needToSend--;
+            }
+
     }
     
     
@@ -137,9 +164,25 @@ public class MSTsynch extends Process{
             myWait();
         }
     }
-    
+
+    void replyExamineAndEnterNewPulse(){
+        System.out.println("entering next pulse");
+        s.nextPulse();
+        for (int i = 0; i < procDemandingExamine.size(); ++i) {
+            int id = procDemandingExamine.getEntry(i);
+            s.sendMessage(
+                    id,
+                    "reply_mwoe",
+                    String.valueOf(id) + ":" +
+                            String.valueOf(myId) + ":" +
+                            String.valueOf(edgeWeight[id]));
+        }
+
+
+    }
     
     public synchronized void handleMsg(Msg m, int src, String tag) {
+        System.out.println("In handleMsg, tag: " + tag);
         if (tag.equals("search_mwoe")) {
             //send messages in broadcast to marked
             searchMwoe();
@@ -148,21 +191,24 @@ public class MSTsynch extends Process{
         }else if (tag.equals("examine")) {
             int hisLeader = m.getMessageInt();
             if (hisLeader != leader) {
-                s.sendMessage(
-                    src, 
-                    "reply_mwoe", 
-                    String.valueOf(src) + ":" + 
-                        String.valueOf(myId) + ":" + 
-                        String.valueOf(edgeWeight[src]));
+                //examineCounter--;
+                deficit--;
+                procDemandingExamine.add(src);
+                System.out.println("Deficit: "+ deficit+ " needToSend: " + needToSend);
+                if(deficit == 0 && needToSend == 0)
+                    replyExamineAndEnterNewPulse();
             }
+            //s.nextPulse();
         }else if (tag.equals("reply_mwoe")) {
+            System.out.println("in reply mwoe");
             String content = m.getMessage();
             StringTokenizer st = new StringTokenizer(content, ":#");
             int localId = Integer.parseInt(st.nextToken());
             int remoteId = Integer.parseInt(st.nextToken());
             int cost = Integer.parseInt(st.nextToken());
             //lower deficit on each received report
-            --deficit;    
+            --deficit;
+            examineReplyCounter--;
             
             if (mwoeSrc == -1 || cost < minCost) {
                 minCost = cost;
@@ -172,7 +218,7 @@ public class MSTsynch extends Process{
             
             //if deficit == 0 process received all reports and can send
             //his report to his parent
-            if (deficit == 0)
+            if (examineReplyCounter == 0)
                 //if process is not leader send his report to his parent
                 //continue convergecast
                 if (myId != leader) {
@@ -182,10 +228,13 @@ public class MSTsynch extends Process{
                         String.valueOf(mwoeSrc) + ":" + 
                         String.valueOf(mwoeDest) + ":" + 
                         String.valueOf(minCost));
+                    s.nextPulse();
                 }else{
                     System.out.println("MWOE src: " + mwoeSrc + " dest: " + mwoeDest);
-                    addMwoe(mwoeSrc, mwoeDest); 
-                } 
+                    addMwoe(mwoeSrc, mwoeDest);
+                    s.nextPulse();
+                }
+
         }else if (tag.equals("add_mwoe")) {
             //continue broadcast
             String content = m.getMessage();
@@ -203,7 +252,16 @@ public class MSTsynch extends Process{
             s.nextPulse();
             runAlgorithm();
             return;
+        }else if (tag.equals("start_algorithm") && !algorithm_running) {
+                int srcId = m.getSrcId();
+                for (int i = 0; i < N; ++i)
+                    //send message to neighbors
+                    if (isNeighbor(i)  && i != srcId)
+                        s.sendMessage(i, "start_algorithm", 0);
+                s.nextPulse();
+                algorithm_running = true;
+                runAlgorithm();
         }
-        s.nextPulse();
+        //s.nextPulse();
     }
 }
